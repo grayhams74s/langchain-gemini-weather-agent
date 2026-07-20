@@ -62,27 +62,45 @@ agent = create_agent(
     checkpointer=InMemorySaver(),
 )
 
+
+def get_message_text(message):
+    """Return only user-facing text from a LangChain message."""
+    if isinstance(message.content, str):
+        return message.content
+
+    return "\n".join(
+        block["text"]
+        for block in message.content
+        if isinstance(block, dict)
+        and block.get("type") == "text"
+        and block.get("text")
+    )
+
+
 # We execute this line of code when the user runs main.py
 if __name__ == "__main__":
-    while True:
-        user_query = input("Enter your query (or 'exit' to quit): ").strip()
+    try:
+        while True:
+            user_query = input("\nYou: ").strip()
 
-        if user_query.lower() in {"exit", "quit"}:
-            print("Goodbye!")
-            break
+            if user_query.lower() in {"exit", "quit", "bye"}:
+                print("Agent: Goodbye!")
+                break
 
-        if not user_query:
-            continue
+            if not user_query:
+                continue
 
-        response = agent.invoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": user_query,
-                    }
-                ]
-            },
-            {"configurable": {"thread_id": "1"}},
-        )
-        print(response["messages"][-1].content)
+            response = agent.invoke(
+                {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": user_query,
+                        }
+                    ]
+                },
+                {"configurable": {"thread_id": "1"}},
+            )
+            print(f"\nAgent: {get_message_text(response['messages'][-1])}")
+    except KeyboardInterrupt:
+        print("\n\nAgent: Goodbye!")
