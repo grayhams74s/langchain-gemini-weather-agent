@@ -1,5 +1,6 @@
 google-ai-generativelanguage
 langchain
 langchain-google-genai
+langgraph
 python-dotenv
 requests

@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from langchain.agents import create_agent
 import os
 import requests
-
+from langgraph.checkpoint.memory import InMemorySaver
 
 load_dotenv()
 
@@ -19,7 +19,8 @@ def get_weather(city: str):
 
     "So we make this request. This comes from request Library."
     "So we make a request URL by sending this parameters."
-    response = requests.get(base_url, params=params)
+    response = requests.get(base_url, params=params, timeout=10)
+    response.raise_for_status()
     data = response.json()
     return data
 
@@ -50,19 +51,37 @@ YOUR WORKFLOW:
    
 2. If the user provides a city, call get_weather(city) directly.
 
+3. Use your knowledge to determine which temperature unit is standard for the given location.
+
 """
 agent = create_agent(
     model=llm,
     tools=[get_weather, get_location],
-    system_prompt=system_prompt
+    system_prompt=system_prompt,
+    checkpointer=InMemorySaver(),
 )
 
 # We execute this line of code when the user runs main.py
 if __name__ == "__main__":
-    user_query = input("Enter your query: ")
+    while True:
+        user_query = input("Enter your query (or 'exit' to quit): ").strip()
 
-    # response1 = llm.invoke("How is the weather in Rome?")
-    response1 = agent.invoke(
-        {"messages": [{'role': 'user',
-                    'content':user_query}]})
-    print(response1['messages'][-1].content)
+        if user_query.lower() in {"exit", "quit"}:
+            print("Goodbye!")
+            break
+
+        if not user_query:
+            continue
+
+        response = agent.invoke(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": user_query,
+                    }
+                ]
+            },
+            {"configurable": {"thread_id": "1"}},
+        )
+        print(response["messages"][-1].content)
