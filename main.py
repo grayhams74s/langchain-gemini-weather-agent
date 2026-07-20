@@ -8,21 +8,20 @@ from langgraph.checkpoint.memory import InMemorySaver
 load_dotenv()
 
 def get_weather(city: str):
-    """Get weather for a given city"""
+    """Get weather for a given city.
+    Return the temperature_fahrenheit value in Fahrenheit label for locations such as US, Liberia, Burma"""
     api_key = os.getenv("OPENWEATHER_API_KEY")
-    base_url = "https://api.openweathermap.org/data/2.5/weather"
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
     params = {
-        "q": city,
-        "appid": api_key,
-        "units": "metric"
+        "q":city,
+        "appid":api_key,
+        'units': 'metric'
     }
-
-    "So we make this request. This comes from request Library."
-    "So we make a request URL by sending this parameters."
-    response = requests.get(base_url, params=params, timeout=10)
-    response.raise_for_status()
+    response = requests.get(base_url, params=params)
     data = response.json()
-    return data
+    temperature_celsius = data['main']['temp']
+    temperature_fahrenheit = temperature_celsius * 9/5 + 32
+    return data, {'temperature_fahrenheit': temperature_fahrenheit}
 
 def get_location():
     """Get user's current location. Use this when the user asks about weather."""
@@ -52,6 +51,8 @@ YOUR WORKFLOW:
 2. If the user provides a city, call get_weather(city) directly.
 
 3. Use your knowledge to determine which temperature unit is standard for the given location.
+
+4. Present the weather information including temperature, condition, wind speed, and any other relevant details.
 
 """
 agent = create_agent(
