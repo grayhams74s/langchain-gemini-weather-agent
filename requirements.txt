@@ -2,5 +2,7 @@ google-ai-generativelanguage
 langchain
 langchain-google-genai
 langgraph
+langgraph-checkpoint-postgres
+psycopg[binary,pool]
 python-dotenv
 requests

@@ -3,9 +3,11 @@ from dotenv import load_dotenv
 from langchain.agents import create_agent
 import os
 import requests
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.postgres import PostgresSaver
 
 load_dotenv()
+
+DB_URI = os.getenv("SUPABASE_DB_URI")
 
 def get_weather(city: str):
     """Get weather for a given city.
@@ -55,14 +57,6 @@ YOUR WORKFLOW:
 4. Present the weather information including temperature, condition, wind speed, and any other relevant details.
 
 """
-agent = create_agent(
-    model=llm,
-    tools=[get_weather, get_location],
-    system_prompt=system_prompt,
-    checkpointer=InMemorySaver(),
-)
-
-
 def get_message_text(message):
     """Return only user-facing text from a LangChain message."""
     if isinstance(message.content, str):
@@ -79,28 +73,42 @@ def get_message_text(message):
 
 # We execute this line of code when the user runs main.py
 if __name__ == "__main__":
+    if not DB_URI:
+        raise RuntimeError("SUPABASE_DB_URI is missing from your .env file.")
+
     try:
-        while True:
-            user_query = input("\nYou: ").strip()
+        with PostgresSaver.from_conn_string(DB_URI) as checkpointer:
+            # Creates the checkpoint tables when running against a new database.
+            checkpointer.setup()
 
-            if user_query.lower() in {"exit", "quit", "bye"}:
-                print("Agent: Goodbye!")
-                break
-
-            if not user_query:
-                continue
-
-            response = agent.invoke(
-                {
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": user_query,
-                        }
-                    ]
-                },
-                {"configurable": {"thread_id": "1"}},
+            agent = create_agent(
+                model=llm,
+                tools=[get_weather, get_location],
+                system_prompt=system_prompt,
+                checkpointer=checkpointer,
             )
-            print(f"\nAgent: {get_message_text(response['messages'][-1])}")
+
+            while True:
+                user_query = input("\nYou: ").strip()
+
+                if user_query.lower() in {"exit", "quit", "bye"}:
+                    print("Agent: Goodbye!")
+                    break
+
+                if not user_query:
+                    continue
+
+                response = agent.invoke(
+                    {
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": user_query,
+                            }
+                        ]
+                    },
+                    {"configurable": {"thread_id": "1"}},
+                )
+                print(f"\nAgent: {get_message_text(response['messages'][-1])}")
     except KeyboardInterrupt:
         print("\n\nAgent: Goodbye!")
