@@ -1,4 +1,5 @@
 google-ai-generativelanguage
+Flask
 langchain
 langchain-google-genai
 langgraph

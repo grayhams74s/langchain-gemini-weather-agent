@@ -88,27 +88,5 @@ if __name__ == "__main__":
                 checkpointer=checkpointer,
             )
 
-            while True:
-                user_query = input("\nYou: ").strip()
-
-                if user_query.lower() in {"exit", "quit", "bye"}:
-                    print("Agent: Goodbye!")
-                    break
-
-                if not user_query:
-                    continue
-
-                response = agent.invoke(
-                    {
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": user_query,
-                            }
-                        ]
-                    },
-                    {"configurable": {"thread_id": "1"}},
-                )
-                print(f"\nAgent: {get_message_text(response['messages'][-1])}")
     except KeyboardInterrupt:
         print("\n\nAgent: Goodbye!")
