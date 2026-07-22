@@ -1,118 +1,167 @@
-# LangChain Gemini Weather Agent
+﻿# LangChain Gemini Weather Agent
 
-A command-line AI weather assistant built with Python, LangChain, and Google
-Gemini. The agent uses tool calling to retrieve live weather data and can
-automatically estimate the user's location when no city is provided.
+A conversational weather assistant built with Flask, LangChain, Google Gemini,
+and OpenWeather. It answers questions about named cities or uses browser
+geolocation to find weather near the user.
+
+## Live Demo
+
+**[Open the Weather AI Agent](https://langchain-weather-agent-363788033158.asia-southeast1.run.app/)**
+
+![Weather AI Agent interface](images/snapshot.png)
 
 ## Features
 
-- Natural-language weather questions
-- Google Gemini integration through LangChain
-- Real-time weather data from OpenWeather
-- IP-based location lookup through ipapi
-- Agent tool calling that selects the appropriate workflow
-- Environment-variable protection for API keys
+- Natural-language weather questions and follow-up messages
+- Browser-based location detection with user permission
+- Live weather conditions from OpenWeather
+- Gemini tool calling through LangChain
+- SQLite conversation checkpoints
+- Suggested prompts, typing indicators, and responsive chat UI
+- Docker and Google Cloud Run deployment support
+- Friendly in-chat error handling with detailed server logs
 
 ## How It Works
 
-When the user enters a question, the Gemini-powered LangChain agent decides
-which tool to call:
+1. The user submits a weather question in the Flask chat interface.
+2. If the question names a city, the agent calls `get_weather()` directly.
+3. If no city is provided, the browser sends coordinates after permission is granted.
+4. `get_location()` reverse-geocodes the coordinates with OpenStreetMap Nominatim.
+5. The agent retrieves conditions from OpenWeather and Gemini writes the answer.
 
-1. If a city is included, the agent calls `get_weather()` directly.
-2. If no city is included, it calls `get_location()` first and then passes the
-   detected location to `get_weather()`.
+![Browser location permission](images/permission.png)
+
+Location permission is optional. Users can deny it and enter a city manually.
 
 ## Tech Stack
 
-- Python
-- LangChain
-- Google Gemini
+- Python 3.13
+- Flask and Gunicorn
+- LangChain and LangGraph
+- Gemini 3.1 Flash-Lite
 - OpenWeather API
-- ipapi
+- OpenStreetMap Nominatim
+- SQLite
+- Docker and Google Cloud Run
 
-## Getting Started
+## Local Setup
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/langchain-gemini-weather-agent.git
+git clone https://github.com/grayhams74s/langchain-gemini-weather-agent.git
 cd langchain-gemini-weather-agent
 ```
 
 ### 2. Create a virtual environment
 
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-On macOS or Linux:
+macOS or Linux:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Install the dependencies
+### 3. Install dependencies
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-### 4. Configure the API keys
+### 4. Configure environment variables
 
 Create a `.env` file in the project root:
 
 ```env
-GOOGLE_API_KEY="your_google_gemini_api_key"
-OPENWEATHER_API_KEY="your_openweather_api_key"
+GOOGLE_API_KEY=your_google_gemini_api_key
+OPENWEATHER_API_KEY=your_openweather_api_key
+FLASK_SECRET_KEY=your_random_flask_secret
 ```
 
-You can create a Gemini key in
-[Google AI Studio](https://aistudio.google.com/app/apikey) and an OpenWeather
-key from the [OpenWeather API](https://openweathermap.org/api).
-
-Never commit the `.env` file. It is excluded by the included `.gitignore`.
-
-### 5. Run the agent
+Generate a Flask secret with:
 
 ```bash
-python main.py
+python -c "import secrets; print(secrets.token_urlsafe(64))"
 ```
 
-Example:
+Do not commit `.env`. It is excluded by `.gitignore` and `.dockerignore`.
 
-```text
-Enter your query: What is the weather in Manila?
+### 5. Run the application
+
+```bash
+python app.py
 ```
 
-You can also omit the city:
+Open `http://127.0.0.1:5000` and allow location access when prompted, or ask
+about a specific city.
 
-```text
-Enter your query: What is the weather where I am?
+## Docker
+
+```bash
+docker build -t weather-ai-agent .
+docker run --rm -p 8080:8080 \
+  -e GOOGLE_API_KEY=your_key \
+  -e OPENWEATHER_API_KEY=your_key \
+  -e FLASK_SECRET_KEY=your_secret \
+  weather-ai-agent
 ```
+
+Then open `http://localhost:8080`.
+
+## Google Cloud Run
+
+The included `Dockerfile` supports source-based Cloud Run deployments. Connect
+the repository, select the `master` branch, and configure:
+
+- Region: `asia-southeast1` (Singapore)
+- Container port: `8080`
+- Authentication: allow public access
+- Maximum instances: `1` while using local SQLite
+
+Add `GOOGLE_API_KEY`, `OPENWEATHER_API_KEY`, and `FLASK_SECRET_KEY` through Cloud
+Run environment variables or Secret Manager.
+
+Cloud Run's local filesystem is ephemeral. SQLite checkpoints may be reset when
+an instance restarts and are not shared across instances. Use a managed database
+when durable, multi-instance conversation memory is required.
 
 ## Project Structure
 
 ```text
 .
-├── main.py
-├── requirements.txt
-├── README.md
-└── .gitignore
+|-- app.py
+|-- agent.py
+|-- Dockerfile
+|-- requirements.txt
+|-- templates/
+|   `-- chat.html
+|-- static/
+|   `-- favicon.ico
+|-- images/
+|   |-- ai agent.png
+|   |-- permission.png
+|   `-- snapshot.png
+|-- README.md
+`-- .gitignore
 ```
 
-## Privacy Note
+## Earlier Prototype
 
-The automatic-location feature sends the user's public IP address to ipapi to
-estimate their city and country. It does not access precise GPS coordinates.
+The project began as a command-line LangChain weather agent before gaining the
+Flask chat interface and Cloud Run deployment.
 
-## Future Improvements
+![Original command-line weather agent](images/ai%20agent.png)
 
-- Add friendly error handling for invalid cities and API failures
-- Include humidity, wind speed, and forecast data
-- Add automated tests
-- Build a web interface
+## Privacy
 
+Precise browser coordinates are requested only after the user grants location
+permission. The coordinates are submitted to this application and sent to
+OpenStreetMap Nominatim for reverse geocoding. Users can avoid location access
+by entering a city manually.
