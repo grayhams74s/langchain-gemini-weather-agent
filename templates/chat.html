@@ -381,6 +381,8 @@
         {% endif %}
 
         <form method="POST" action="/send" class="composer" id="chatForm">
+            <input type="hidden" name="latitude" id="latitude">
+            <input type="hidden" name="longitude" id="longitude">
             <input
                 type="text"
                 name="message"
@@ -399,8 +401,24 @@
         const chatForm = document.getElementById("chatForm");
         const sendButton = document.getElementById("sendButton");
         const messageInput = chatForm.elements.message;
+        const latitudeInput = document.getElementById("latitude");
+        const longitudeInput = document.getElementById("longitude");
 
         window.scrollTo({ top: document.body.scrollHeight });
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function (position) {
+                    latitudeInput.value = position.coords.latitude;
+                    longitudeInput.value = position.coords.longitude;
+                },
+                function () {
+                    latitudeInput.value = "";
+                    longitudeInput.value = "";
+                },
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+            );
+        }
 
         document.querySelectorAll(".suggestion-btn").forEach(function (button) {
             button.addEventListener("click", function () {

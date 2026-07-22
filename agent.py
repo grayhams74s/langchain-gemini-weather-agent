@@ -6,7 +6,7 @@ import requests
 from langgraph.checkpoint.sqlite import SqliteSaver
 import ast
 import atexit
-
+from flask import session
 
 load_dotenv()
 
@@ -29,14 +29,38 @@ def get_weather(city: str):
 
 def get_location():
     """Get user's current location. Use this when the user asks about weather."""
+
+    user_location = session.get("user_location")
+    if not user_location:
+        return (
+            "The user's browser location is unavailable. Ask the user to allow "
+            "location access or provide a city. Do not call get_weather yet."
+        )
+
+    lat = float(user_location["lat"])
+    lon = float(user_location["lon"])
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return "The user's browser returned invalid coordinates. Ask for a city."
+
     response = requests.get(
-        "https://ipapi.co/json/",
-        headers={"User-Agent": "weather-agent/0.1"},
+        "https://nominatim.openstreetmap.org/reverse",
+        params={"lat": lat, "lon": lon, "format": "jsonv2"},
+        headers={"User-Agent": "WeatherAssistant/1.0"},
         timeout=10,
     )
     response.raise_for_status()
     data = response.json()
-    return f"{data.get('city')}, {data.get('country_name')}"
+    address = data.get("address", {})
+    city = next(
+        (
+            address.get(key)
+            for key in ("city", "municipality", "town", "city_district", "county", "state")
+            if address.get(key)
+        ),
+        "Unknown location",
+    )
+    country = address.get("country", "")
+    return f"{city}, {country}".strip(", ")
 
 # Initialize the current Gemini Flash model
 llm = ChatGoogleGenerativeAI(
@@ -53,6 +77,8 @@ YOUR WORKFLOW:
 1. If the user asks about weather WITHOUT specifying a location, you MUST:
    - First call get_location() to find their location
    - Then call get_weather(city) with that location
+   - If get_location says browser location is unavailable, ask the user to allow
+     location access or provide a city. Do not call get_weather.
    
 2. If the user provides a city, call get_weather(city) directly.
 
