@@ -31,13 +31,25 @@ def send():
     if user_lat and user_lon:
         session['user_location'] = {'lat': user_lat, 'lon': user_lon}
 
-    response = agent.invoke({"messages": [{'role': 'user', 'content':user_message}]},
-                                 {"configurable": {"thread_id":session['thread_id']}})
-    session['messages'].append({'type': 'human', 'content': user_message})
-    session['messages'].append({
-        'type': 'ai',
-        'content': get_message_text(response['messages'][-1]),
-    })
+    thread_id = session.setdefault('thread_id', str(uuid.uuid4()))
+    messages = session.setdefault('messages', [])
+    messages.append({'type': 'human', 'content': user_message})
+
+    try:
+        response = agent.invoke(
+            {"messages": [{'role': 'user', 'content': user_message}]},
+            {"configurable": {"thread_id": thread_id}},
+        )
+        reply = get_message_text(response['messages'][-1])
+    except Exception:
+        app.logger.exception('Weather agent request failed')
+        reply = (
+            'Sorry, I could not reach the weather service right now. '
+            'Please try again in a moment.'
+        )
+
+    messages.append({'type': 'ai', 'content': reply})
+    session['messages'] = messages
     session.modified = True
     return redirect(url_for('home'))
 
