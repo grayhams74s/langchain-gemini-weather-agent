@@ -3,11 +3,12 @@ from dotenv import load_dotenv
 from langchain.agents import create_agent
 import os
 import requests
-from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.checkpoint.sqlite import SqliteSaver
+import ast
+import atexit
+
 
 load_dotenv()
-
-DB_URI = os.getenv("SUPABASE_DB_URI")
 
 def get_weather(city: str):
     """Get weather for a given city.
@@ -19,7 +20,8 @@ def get_weather(city: str):
         "appid":api_key,
         'units': 'metric'
     }
-    response = requests.get(base_url, params=params)
+    response = requests.get(base_url, params=params, timeout=15)
+    response.raise_for_status()
     data = response.json()
     temperature_celsius = data['main']['temp']
     temperature_fahrenheit = temperature_celsius * 9/5 + 32
@@ -38,8 +40,10 @@ def get_location():
 
 # Initialize the current Gemini Flash model
 llm = ChatGoogleGenerativeAI(
-    model="gemini-3.5-flash",
+    model="gemini-3.1-flash-lite",
     temperature=0.7,
+    timeout=30,
+    max_retries=1,
 )
 
 
@@ -59,34 +63,37 @@ YOUR WORKFLOW:
 """
 def get_message_text(message):
     """Return only user-facing text from a LangChain message."""
-    if isinstance(message.content, str):
-        return message.content
+    content = getattr(message, "content", message)
 
-    return "\n".join(
-        block["text"]
-        for block in message.content
-        if isinstance(block, dict)
-        and block.get("type") == "text"
-        and block.get("text")
-    )
+    if isinstance(content, str):
+        # Some providers serialize structured content blocks as a string.
+        if content.lstrip().startswith("["):
+            try:
+                content = ast.literal_eval(content)
+            except (ValueError, SyntaxError):
+                return content.replace("*", "")
+        else:
+            return content.replace("*", "")
+
+    if isinstance(content, list):
+        text_blocks = [
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict) and block.get("text")
+        ]
+        if text_blocks:
+            return "\n".join(text_blocks).replace("*", "")
+
+    return str(content).replace("*", "")
 
 
-# We execute this line of code when the user runs main.py
-if __name__ == "__main__":
-    if not DB_URI:
-        raise RuntimeError("SUPABASE_DB_URI is missing from your .env file.")
+connection = SqliteSaver.from_conn_string("checkpoints.db")
+checkpointer = connection.__enter__()
+atexit.register(connection.__exit__, None, None, None)
 
-    try:
-        with PostgresSaver.from_conn_string(DB_URI) as checkpointer:
-            # Creates the checkpoint tables when running against a new database.
-            checkpointer.setup()
-
-            agent = create_agent(
-                model=llm,
-                tools=[get_weather, get_location],
-                system_prompt=system_prompt,
-                checkpointer=checkpointer,
-            )
-
-    except KeyboardInterrupt:
-        print("\n\nAgent: Goodbye!")
+agent = create_agent(
+    model=llm,
+    tools=[get_weather, get_location],
+    system_prompt=system_prompt,
+    checkpointer=checkpointer,
+)

@@ -3,7 +3,6 @@ Flask
 langchain
 langchain-google-genai
 langgraph
-langgraph-checkpoint-postgres
-psycopg[binary,pool]
+langgraph-checkpoint-sqlite
 python-dotenv
 requests

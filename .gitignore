@@ -37,3 +37,9 @@ Thumbs.db
 
 # Logs
 *.log
+checkpoints.sqlite
+checkpoints.sqlite-shm
+checkpoints.sqlite-wal
+checkpoints.db
+checkpoints.db-shm
+checkpoints.db-wal
