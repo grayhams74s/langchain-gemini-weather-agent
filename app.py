@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from agent import agent, get_message_text
 import uuid
+import os
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = os.environ["FLASK_SECRET_KEY"]
 
 @app.route('/')
 def home():
