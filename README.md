@@ -16,7 +16,7 @@ geolocation to find weather near the user.
 - Browser-based location detection with user permission
 - Live weather conditions from OpenWeather
 - Gemini tool calling through LangChain
-- SQLite conversation checkpoints
+- Conversation memory powered by LangGraph and SQLite checkpoints
 - Suggested prompts, typing indicators, and responsive chat UI
 - Docker and Google Cloud Run deployment support
 - Friendly in-chat error handling with detailed server logs
@@ -27,7 +27,8 @@ geolocation to find weather near the user.
 2. If the question names a city, the agent calls `get_weather()` directly.
 3. If no city is provided, the browser sends coordinates after permission is granted.
 4. `get_location()` reverse-geocodes the coordinates with OpenStreetMap Nominatim.
-5. The agent retrieves conditions from OpenWeather and Gemini writes the answer.
+5. LangGraph loads and saves conversation state using a per-session thread ID.
+6. The agent retrieves conditions from OpenWeather and Gemini writes the answer.
 
 ![Browser location permission](images/permission.png)
 
@@ -41,9 +42,21 @@ Location permission is optional. Users can deny it and enter a city manually.
 - Gemini 3.1 Flash-Lite
 - OpenWeather API
 - OpenStreetMap Nominatim
+- LangGraph `SqliteSaver` for conversation memory
 - SQLite
 - Docker and Google Cloud Run
 
+## Conversation Memory
+
+The assistant uses LangGraph's `SqliteSaver` checkpointer to retain conversation
+state. Each browser session receives a unique `thread_id`, allowing the agent to
+understand follow-up questions such as "Should I bring an umbrella?" without the
+user repeating the location or previous weather context.
+
+For local development and a single Cloud Run instance, checkpoints are stored in
+`checkpoints.db`. Cloud Run's filesystem is ephemeral, so this memory can be
+reset when the instance restarts. A managed database should be used when durable
+memory across deployments or multiple instances is required.
 ## Local Setup
 
 ### 1. Clone the repository
